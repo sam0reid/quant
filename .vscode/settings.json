@@ -1,0 +1,5 @@
+{
+    "python.linting.pylintEnabled": true,
+    "python.linting.enabled": true,
+    "python.pythonPath": "/Users/samuelreid/.local/share/virtualenvs/quant-2MdrsuNs/bin/python"
+}
