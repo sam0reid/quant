@@ -13,6 +13,7 @@ import h5py
 import os
 import numpy as np
 import pandas as pd
+import pandas_market_calendars as mcal
 import queue
 import time
 import tqdm
@@ -27,7 +28,7 @@ class MessageProcessor(object):
     """
     Store messages as they come in to hdf5 filee
     """
-    def __init__(self, data_path:Path, size:int=100):
+    def __init__(self, data_path:Path, size:int=1000000):
         self.message_queue = queue.Queue()
         self.size = size
         self.data_path = data_path
@@ -168,8 +169,7 @@ class MyClient(EClient):
             integer value if completed successfully
             a locally defined object if timeout or other error occured.
         """
-        query_time = (datetime.datetime.today() - datetime.timedelta(days=end)).strftime("%Y%m%d %H:%M:%S")
-        self.reqHistoricalData(reqId, contract, query_time, duration, interval, "MIDPOINT", 1, 1, False, [])
+        self.reqHistoricalData(reqId, contract, end, duration, interval, "MIDPOINT", 1, 1, False, [])
         try:
             finished = self.wrapper.finished_requests.get(timeout=MAX_WAIT_SECONDS*100)
             return finished
@@ -218,13 +218,18 @@ if __name__ == "__main__":
     app = MyApp("127.0.0.1", 7497, 1)
     symbols = getSPYTickers()
     failed = False
+    num_years = 5
     for i, s in enumerate(symbols):
         con = app.getMostLikelyContract(s, i)
         data_path = Path(r'data') / f"{con.symbol}.hdf5"
         if os.path.exists(data_path):
             pass
         else:
-            t_steps = range(1,365*5)[::-1]
+            nyse = mcal.get_calendar('NYSE')
+
+            nyse_schedule = nyse.schedule(start_date=datetime.datetime.today() - datetime.timedelta(days=365*num_years), 
+                                          end_date=datetime.datetime.today())
+            t_steps = [ts.strftime("%Y%m%d %H:%M:%S") for ts in nyse_schedule.index]
             j=0
             pbar = tqdm.tqdm(total=len(t_steps))
             pbar.set_description(f"Getting data for {con.symbol}")

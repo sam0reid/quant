@@ -15,6 +15,7 @@ h5py = "*"
 lxml = "*"
 jupyter = "*"
 tqdm = "*"
+pandas-market-calendars = "*"
 
 [dev-packages]
 
