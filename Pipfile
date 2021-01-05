@@ -16,8 +16,11 @@ lxml = "*"
 jupyter = "*"
 tqdm = "*"
 pandas-market-calendars = "*"
+statsmodels = "*"
+tensorflow = "*"
+sklearn = "*"
 
 [dev-packages]
 
 [requires]
-python_version = "3.9"
+python_version = "3.8"

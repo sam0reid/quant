@@ -1,4 +1,6 @@
 *.pyc
 **/data
+**/sequences
+**/logs
 
 .DS_Store

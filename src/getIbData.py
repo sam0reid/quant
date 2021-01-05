@@ -140,12 +140,15 @@ class MyClient(EClient):
         self.reqMatchingSymbols(reqId, ticker)
         ## Run until we get a valid contract(s) or get bored waiting
         contract_details = contract_details_queue.get(timeout = MAX_WAIT_SECONDS)
-        first_contract = contract_details[0].contract
+        if len(contract_details) >= 1:
+            first_contract = contract_details[0].contract
 
-        resolved_contract_queue = self.wrapper.initresolvedcontract(reqId)
-        self.reqContractDetails(reqId, first_contract)
-        resolved_contract = resolved_contract_queue.get(timeout = MAX_WAIT_SECONDS)
-        return resolved_contract.contract
+            resolved_contract_queue = self.wrapper.initresolvedcontract(reqId)
+            self.reqContractDetails(reqId, first_contract)
+            resolved_contract = resolved_contract_queue.get(timeout = MAX_WAIT_SECONDS)
+            return resolved_contract.contract
+        else:
+            return None
 
     def initializeMessageProcessor(self, contract, reqId:int):
         fname = Path('data') / f"{contract.symbol}.hdf5"
@@ -215,35 +218,41 @@ def getSPYTickers():
 
 if __name__ == "__main__":
 
+    retried = 0
+
     app = MyApp("127.0.0.1", 7497, 1)
     symbols = getSPYTickers()
     failed = False
     num_years = 5
     for i, s in enumerate(symbols):
         con = app.getMostLikelyContract(s, i)
-        data_path = Path(r'data') / f"{con.symbol}.hdf5"
-        if os.path.exists(data_path):
-            pass
-        else:
-            nyse = mcal.get_calendar('NYSE')
+        if con != None:
+            data_path = Path(r'data') / f"{con.symbol}.hdf5"
+            if os.path.exists(data_path):
+                pass
+            else:
+                nyse = mcal.get_calendar('NYSE')
 
-            nyse_schedule = nyse.schedule(start_date=datetime.datetime.today() - datetime.timedelta(days=365*num_years), 
-                                          end_date=datetime.datetime.today())
-            t_steps = [ts.strftime("%Y%m%d %H:%M:%S") for ts in nyse_schedule.index]
-            j=0
-            pbar = tqdm.tqdm(total=len(t_steps))
-            pbar.set_description(f"Getting data for {con.symbol}")
-            app.initializeMessageProcessor(con, i)
-            while j < len(t_steps):
-                pbar.update(1)
-                result = app.getHistoricalData(con, t_steps[j], "1 D", "1 min", int(f"{i}"))
-                if result == HISTORICAL_DATA_TIMEOUT:
-                    app.disconnect()
-                    failed = True
-                    break
-                else:
-                    j+=1
-            if failed:
-                break
-            pbar.close()
+                nyse_schedule = nyse.schedule(start_date=datetime.datetime.today() - datetime.timedelta(days=365*num_years), 
+                                            end_date=datetime.datetime.today())
+                t_steps = [ts.strftime("%Y%m%d %H:%M:%S") for ts in nyse_schedule.index]
+                j=0
+                pbar = tqdm.tqdm(total=len(t_steps))
+                pbar.set_description(f"Getting data for {con.symbol}")
+                app.initializeMessageProcessor(con, i)
+                while j < len(t_steps):
+                    pbar.update(1)
+                    result = app.getHistoricalData(con, t_steps[j], "1 D", "1 min", int(f"{i}"))
+                    if result == HISTORICAL_DATA_TIMEOUT:
+                        app.disconnect()
+                        failed = True
+                        break
+                    else:
+                        j+=1
+                if failed:
+                    app = MyApp("127.0.0.1", 7497, 1)
+                    retried += 1
+                    if retried == 5:
+                        break
+                pbar.close()
     app.disconnect()
